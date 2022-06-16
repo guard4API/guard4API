@@ -1,7 +1,6 @@
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpListener;
-
-use std::str;
+use std::net::SocketAddr;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main]
 async fn main() {
@@ -11,28 +10,34 @@ async fn main() {
     println!("Listening on: {}", listen_addr);
     let listener = TcpListener::bind(listen_addr).await.unwrap();
     loop {
-        let (mut socket, address) = listener.accept().await.unwrap();
-        tokio::spawn(async move {
-            let (read, mut writer) = socket.split();
-            let mut reader = BufReader::new(read);
-            let mut line = String::new();
-
-            loop {
-                let bytes_read = reader.read_line(&mut line).await.unwrap();
-                if bytes_read == 0 {
-                    // sending same data
-                    let mut response = "HTTP/1.1 200 OK\r\n".to_string();
-                    response.push("ContentType: text/html\r\n".to_string().parse().unwrap());
-                    response.push("Connection: close\r\n".to_string().parse().unwrap());
-                    response.push("\r\n".to_string().parse().unwrap());
-                    response.push("<b>It works!</b>".to_string().parse().unwrap());
-                    response.push("\r\n\r\n".to_string().parse().unwrap());
-                    writer.write_all(response.as_bytes()).await.unwrap();
-                    line.clear();
-                    break;
-                }
-                println!("Message Received :: {}", line);
-            }
-        });
+        let (socket, address) = listener.accept().await.unwrap();
+        handle_connection(socket, address).await;
     }
+}
+
+async fn handle_connection(mut socket: TcpStream, _address: SocketAddr) {
+    let http_header_first = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-length: ";
+    let http_header_last = "\r\nServer: guard-api/0.1\r\nAccept-Ranges: bytes\r\n\r\n";
+
+    tokio::spawn(async move {
+        let (read, mut writer) = socket.split();
+        let mut reader = BufReader::new(read);
+        let mut line = String::new();
+
+        loop {
+            let bytes_read = reader.read_line(&mut line).await.unwrap();
+            if bytes_read == 0 {
+                // sending same data
+                let data = String::from("<b>It works!</b>");
+                let size: usize = data.len();
+                let mut response = String::from(http_header_first);
+                response.push_str(&size.to_string());
+                response.push_str(http_header_last);
+                writer.write_all(response.as_bytes()).await.unwrap();
+                line.clear();
+                break;
+            }
+            println!("Message Received :: {}", line);
+        }
+    });
 }
