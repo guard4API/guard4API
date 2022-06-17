@@ -17,12 +17,14 @@ async fn handle_connection(mut socket: TcpStream, _address: SocketAddr) {
     let http_header_last = "\r\nServer: guard-api/0.1\r\nAccept-Ranges: bytes\r\n\r\n";
 
     tokio::spawn(async move {
+        println!(" New Client Connected ...");
         let (read, mut writer) = socket.split();
         let mut reader = BufReader::new(read);
         let mut line = String::new();
 
         loop {
             let bytes_read = reader.read_line(&mut line).await.unwrap();
+            println!(" Byte read {}", bytes_read);
             if bytes_read == 0 {
                 // sending same data
                 let data = String::from("<b>It works!</b>");
