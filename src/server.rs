@@ -68,6 +68,28 @@ impl RequestMetaInfo {
             }
         }
     }
+
+    fn add_header(&mut self, key: String, value: String) {
+        self.headers.insert(key, value);
+    }
+
+    fn generate_request_header(&self) -> String {
+        let mut header_info = String::new();
+        header_info.push_str(self.method.as_str());
+        header_info.push_str(" ");
+
+        header_info.push_str(self.uri.as_str());
+        header_info.push_str(" ");
+
+        header_info.push_str(self.version.as_str());
+        header_info.push_str("\r\n");
+
+        for (key, value) in &self.headers {
+            header_info.push_str(format!("{}: {}", key, value).as_str());
+            header_info.push_str("\r\n");
+        }
+        return header_info;
+    }
 }
 
 pub async fn start() -> Result<(), Box<dyn Error>> {
@@ -101,10 +123,11 @@ async fn handle_connection(mut incoming_stream: TcpStream) -> Result<(), Box<dyn
     while let Ok(size_read) = reader.read_line(&mut line).await {
         if size_read > 0 {
             if line == "\r\n" {
-                let request_header = RequestMetaInfo::from(&request_headers)?;
+                let mut request_header = RequestMetaInfo::from(&request_headers)?;
+                request_header.add_header(String::from("X-Forwarded"), String::from("guard4API"));
                 println!(" Headers: {:?}", request_header);
                 server_writer
-                    .write(request_headers.as_bytes())
+                    .write(request_header.generate_request_header().as_bytes())
                     .await
                     .unwrap();
             } else {
@@ -142,77 +165,3 @@ async fn handle_connection(mut incoming_stream: TcpStream) -> Result<(), Box<dyn
     tokio::try_join!(client_to_server, server_to_client)?; */
     Ok(())
 }
-
-/*
-async fn handle_connection(mut socket: TcpStream, _address: SocketAddr) {
-    // let http_header_first = "HTTP/1.1 200 OK\r\n\r\n";
-    //let http_header_last = "\r\nServer: guard-api/0.1\r\nAccept-Ranges: bytes\r\n\r\n";
-
-    tokio::spawn(async move {
-        println!(" New Client Connected ...");
-        let (read, mut writer) = socket.split();
-        let mut reader = BufReader::new(read);
-        let mut line = String::new();
-
-        loop {
-            let bytes_read = reader.read_line(&mut line).await.unwrap();
-            println!(" Byte read {}", bytes_read);
-            if bytes_read == 0 {
-                // sending same data
-                //let data = String::from("<b>It works!</b>");
-                //let size: usize = data.len();
-                //  let mut response = String::from(http_header_first);
-                // response.push_str(&size.to_string());
-                // response.push_str(http_header_last);
-                // writer.write_all(response.as_bytes()).await.unwrap();
-                //writer.flush().await.unwrap();
-                // line.clear();
-                break;
-            }
-            println!("Message Received :: {}", line);
-            //forward request to the target server
-            forward_to_server(line.as_bytes()).await;
-        }
-    });
-}
-
-async fn forward_to_server(data: &[u8]) {
-    let server_addr = String::from("127.0.0.1:8888");
-    println!("trying to connect with server : {:?}", server_addr);
-    match TcpStream::connect(server_addr).await {
-        Err(e) => eprintln!(" unable to connect with server. {:?} ", e),
-
-        Ok(mut client) => {
-            println!("connected with server : {}", client.local_addr().unwrap());
-            let (read, mut writer) = client.split();
-            let mut reader = BufReader::new(read);
-
-
-            writer.write(data).await.unwrap();
-            writer.flush();
-            /*
-            // 1.send data to the server
-            let client_to_server = async{
-                writer.write(data).await?;
-            };
-            // 2. read response from server
-
-            loop {
-                let mut line = String::new();
-                let read_result = reader.read_line(&mut line).await;
-                match read_result {
-                    Err(e) => println!("Error while reading ...{:?}", e),
-                    Ok(bytes_read) => {
-                        println!("Byte read {}", bytes_read);
-                        if bytes_read == 0 {
-                            break;
-                        }
-                        println!("Message Received :: {}", line);
-                    }
-                }
-            }
-            // 3. send to the proxy server */
-        }
-    }
-}
-*/

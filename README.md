@@ -18,6 +18,17 @@ message-body
 ```
 ### Echo Server 
 ```
-netcat command to run a dummy server 
 nc -l localhost 8888
+```
+
+### How it works ?
+```
+1. the guard4API listen incomming request from the Http client
+2. Parse the header information 
+3. Write the header to the target server ( Http Server )
+4. Read body/payload in chunk by chunk 
+5. Write every chunk to the server 
+6. Read response from the server 
+7. Forward to the requested client.
+
 ```
